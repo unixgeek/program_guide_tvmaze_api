@@ -14,7 +14,12 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     let args: Vec<String> = env::args().collect();
     let tvmaze_id = match args.get(1) {
-        Some(id) => id.parse::<u32>().unwrap(),
+        Some(id) => {
+            match id.parse::<u32>() {
+                Ok(id) => id,
+                Err(_err) => 0
+            }
+        },
         None => 0
     };
 
