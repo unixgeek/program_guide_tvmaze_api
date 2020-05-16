@@ -86,7 +86,15 @@ impl Database {
     pub fn insert_episodes_by_program_id(&mut self, episodes: Vec<Episode>) -> Result<Vec<Vec<u8>>> {
         let mut total: Vec<Vec<u8>> = Vec::new();
         for episode in episodes {
-            let insert_result: Vec<u8> = self.connection.exec(&self.insert_episodes_for_program_id, (episode.program_id, episode.season, episode.number, episode.original_air_date, episode.title, episode.summary_url))?;
+            let original_air_date = match episode.original_air_date.trim().is_empty() {
+                true => {
+                    None
+                }
+                false => {
+                    Some(episode.original_air_date)
+                }
+            };
+            let insert_result: Vec<u8> = self.connection.exec(&self.insert_episodes_for_program_id, (episode.program_id, episode.season, episode.number, original_air_date, episode.title, episode.summary_url))?;
             total.push(insert_result);
         }
         Ok(total)
