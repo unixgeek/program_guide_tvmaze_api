@@ -1,12 +1,8 @@
-extern crate reqwest;
-
-use serde::Deserialize;
 use std::collections::HashMap;
 
-// #[derive(Deserialize)]
-// pub struct Status {
-//     show: Map<u32, u32>
-// }
+use reqwest::{Error, StatusCode};
+use reqwest::blocking::Client;
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct WebChannel {
@@ -25,7 +21,8 @@ pub struct Show {
     pub url: String,
     pub name: String,
     pub network: Option<Network>,
-    pub web_channel: Option<WebChannel>
+    pub web_channel: Option<WebChannel>,
+    pub updated: u32,
 }
 
 #[derive(Deserialize)]
@@ -38,42 +35,48 @@ pub struct Episode {
     pub airdate: String,
 }
 
-pub struct TVMaze {
-    //client: reqwest::Client
+pub struct TvMazeApi {
+    url: String,
+    client: Client,
 }
 
-impl TVMaze {
-    pub fn init() -> TVMaze {
-        // let client = reqwest::Client::new();
-        let tvmaze = TVMaze {
-            // client
-        };
-        tvmaze
+impl TvMazeApi {
+    pub fn new(url: String) -> Self {
+        let client = Client::new();
+
+        Self {
+            url,
+            client,
+        }
     }
 
-    pub fn get_show_status(&self) -> HashMap<u32, u32> {
-        let response = reqwest::blocking::get("http://api.tvmaze.com/updates/shows").expect("todo fixme");
-        let text = response.text().expect("todo fixme");
-        let status: HashMap<u32, u32> = serde_json::from_str(text.as_str()).unwrap();
-        status
+    pub fn get_show_updates(&self) -> Result<Option<HashMap<u32, u32>>, Error> {
+        let request = format!("{url}/updates/shows", url = self.url);
+        let response = self.client.get(&request).send()?;
+
+        match response.status() {
+            StatusCode::OK => Ok(Some(response.json()?)),
+            _ => Ok(None)
+        }
     }
 
-    pub fn get_show(&self, id: u32) -> Show {
-        let mut url = String::from("http://api.tvmaze.com/shows/");
-        url.push_str(id.to_string().as_str());
-        let response = reqwest::blocking::get(&url).expect("todo fixme");
-        let text = response.text().expect("todo fixme");
-        let show: Show = serde_json::from_str(text.as_str()).unwrap();
-        show
+    pub fn get_show(&self, id: u32) -> Result<Option<Show>, Error> {
+        let request = format!("{url}/shows/{id}", url = self.url, id = id);
+        let response = self.client.get(&request).send()?;
+
+        match response.status() {
+            StatusCode::OK => Ok(Some(response.json()?)),
+            _ => Ok(None)
+        }
     }
 
-    pub fn get_episodes(&self, id: u32) -> Vec<Episode> {
-        let mut url = String::from("http://api.tvmaze.com/shows/");
-        url.push_str(id.to_string().as_str());
-        url.push_str("/episodes");
-        let response = reqwest::blocking::get(&url).expect("todo fixme");
-        let text = response.text().expect("todo fixme");
-        let episodes: Vec<Episode> = serde_json::from_str(text.as_str()).unwrap();
-        episodes
+    pub fn get_episodes(&self, id: u32) -> Result<Option<Vec<Episode>>, Error> {
+        let request = format!("{url}/shows/{id}/episodes", url = self.url, id = id);
+        let response = self.client.get(&request).send()?;
+
+        match response.status() {
+            StatusCode::OK => Ok(Some(response.json()?)),
+            _ => Ok(None)
+        }
     }
 }

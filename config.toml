@@ -1,0 +1,2 @@
+tvmaze_api_url = "http://api.tvmaze.com"
+database_url = "mysql://pguser:pgus3r@localhost:3306/program_guide"
