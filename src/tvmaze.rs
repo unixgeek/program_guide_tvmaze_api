@@ -27,7 +27,6 @@ pub struct Show {
 
 #[derive(Deserialize)]
 pub struct Episode {
-    pub id: u32,
     pub url: String,
     pub name: String,
     pub season: u8,
