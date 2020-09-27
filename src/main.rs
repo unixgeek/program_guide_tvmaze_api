@@ -6,7 +6,8 @@ use log::debug;
 use structopt::StructOpt;
 
 use program_guide_tvmaze_api::program_guide::{Database, Episode, Program};
-use program_guide_tvmaze_api::tvmaze::TvMazeApi;
+use program_guide_tvmaze_api::tvmaze::{TvMazeApi, Show};
+use program_guide_tvmaze_api::tvmaze;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -125,7 +126,11 @@ fn main() {
 
                 debug!("last_tvmaze_update: {} last_program_guide_update: {}", last_tvmaze_update, last_program_guide_update);
                 if last_tvmaze_update != last_program_guide_update {
-                    debug!("Adding {} to the list to update", program.name);
+                    let display = match &program.name {
+                        Some(n) => n.clone(),
+                        None => format!("tvmaze_id {}", program.tvmaze_id)
+                    };
+                    debug!("Adding {} to the list to update", display);
 
                     programs_to_update.push(program);
                 }
@@ -137,8 +142,13 @@ fn main() {
     }
 
     for program in programs_to_update {
-        println!("Updating {}", program.name);
-        debug!("Updating {}", program.name);
+        let display = match &program.name {
+            Some(n) => n.clone(),
+            None => format!("tvmaze_id {}", program.tvmaze_id)
+        };
+
+        println!("Updating {}", display);
+        debug!("Updating {}", display);
 
         let show = match tvmaze_api.get_show(program.tvmaze_id) {
             Ok(s) => s,
@@ -153,26 +163,7 @@ fn main() {
             continue;
         }
 
-        let show = show.unwrap();
-        let network = match show.network {
-            Some(network) => network.name,
-            None => {
-                match show.web_channel {
-                    Some(web) => web.name,
-                    None => "".to_string()
-                }
-            }
-        };
-
-        let program_to_update = Program {
-            id: program.id,
-            name: show.name,
-            url: show.url,
-            do_update: program.do_update,
-            tvmaze_id: program.tvmaze_id,
-            network: Some(network),
-            last_update: Some(show.updated),
-        };
+        let program_to_update = to_program(show.unwrap());
 
         if program != program_to_update {
             println!("program before: {:?}", program);
@@ -206,22 +197,15 @@ fn main() {
         let episodes = episodes.unwrap();
 
         for episode in episodes {
-            let current_episode = match database.get_episode_by_episode_number(program.id, episode.season, episode.number) {
+            let current_episode = match database.get_episode_by_episode_number(program.tvmaze_id, episode.season, episode.number) {
                 Ok(e) => e,
                 Err(error) => {
-                    eprintln!("Error getting episode for id {}, season {}, number {} from the database: {}", program.id, episode.season, episode.number, error);
+                    eprintln!("Error getting episode for id {}, season {}, number {} from the database: {}", program.tvmaze_id, episode.season, episode.number, error);
                     None
                 }
             };
 
-            let new_episode = Episode {
-                program_id: program.id,
-                season: episode.season,
-                number: episode.number,
-                original_air_date: episode.airdate,
-                title: episode.name,
-                summary_url: episode.url,
-            };
+            let new_episode = to_episode(program.tvmaze_id, episode);
 
             if current_episode.is_some() {
                 let current_episode = current_episode.unwrap();
@@ -239,10 +223,10 @@ fn main() {
             episodes_to_insert.push(new_episode);
         }
 
-        let delete_result = match database.delete_episodes_by_program_id(program.id) {
+        let delete_result = match database.delete_episodes_by_program_id(program.tvmaze_id) {
             Ok(count) => (count, true),
             Err(error) => {
-                eprintln!("Error deleting episodes for id {}: {}", program.id, error);
+                eprintln!("Error deleting episodes for id {}: {}", program.tvmaze_id, error);
                 (0, false)
             }
         };
@@ -252,7 +236,7 @@ fn main() {
             let insert_count = match database.insert_episodes_by_program_id(episodes_to_insert) {
                 Ok(count) => count,
                 Err(error) => {
-                    eprintln!("Error inserting episodes for id {}: {}", program.id, error);
+                    eprintln!("Error inserting episodes for id {}: {}", program.tvmaze_id, error);
                     0
                 }
             };
@@ -264,4 +248,63 @@ fn main() {
     }
 
     exit(exitcode::OK);
+}
+
+// Do some conversion work.
+fn to_program(show: Show) -> Program {
+    let network = match show.network {
+        Some(network) => network.name,
+        None => {
+            match show.web_channel {
+                Some(web) => web.name,
+                None => "".to_string()
+            }
+        }
+    };
+
+    // Some values are empty strings and we prefer nulls or Nones.
+    let name = match show.name.trim().is_empty() {
+        true => None,
+        false => Some(show.name)
+    };
+
+    let url = match show.url.trim().is_empty() {
+        true => None,
+        false => Some(show.url)
+    };
+
+    Program {
+        tvmaze_id: show.id,
+        name,
+        url,
+        network: Some(network),
+        last_update: Some(show.updated),
+    }
+}
+
+// Do some conversion work.
+fn to_episode(tvmaze_id: u32, episode: tvmaze::Episode) -> Episode {
+    let original_air_date = match episode.airdate.trim().is_empty() {
+        true => None,
+        false => Some(episode.airdate)
+    };
+
+    let title = match episode.name.trim().is_empty() {
+        true => None,
+        false => Some(episode.name)
+    };
+
+    let summary_url = match episode.url.trim().is_empty() {
+        true => None,
+        false => Some(episode.url)
+    };
+
+    Episode {
+        tvmaze_id,
+        season: episode.season,
+        number: episode.number,
+        original_air_date,
+        title,
+        summary_url,
+    }
 }
