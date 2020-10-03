@@ -41,7 +41,7 @@ fn main() {
     }
     let database_url = config.get_str(DATABASE_URL_KEY).ok();
     if database_url == None {
-        eprintln!("{} is mising from the config", DATABASE_URL_KEY);
+        eprintln!("{} is missing from the config", DATABASE_URL_KEY);
         exit(exitcode::CONFIG);
     }
 
@@ -62,8 +62,8 @@ fn main() {
     // If an id was specified, then we only want to update that one.
     if args.tvmaze_show_id.is_some() {
         let tvmaze_show_id = args.tvmaze_show_id.unwrap();
-        println!("Updating program for tvmaze_show_id {}", tvmaze_show_id);
-        debug!("Updating program for tvmaze_show_id {}", tvmaze_show_id);
+        println!("Checking for updates to tvmaze_show_id {}", tvmaze_show_id);
+        debug!("Checking for updates to tvmaze_show_id {}", tvmaze_show_id);
 
         let program = match database.get_program_by_tvmaze_show_id(tvmaze_show_id) {
             Ok(p) => p,
@@ -84,8 +84,8 @@ fn main() {
     }
     // An id was not specified, so potentially update all of the programs in the database.
     else {
-        println!("Updating all programs");
-        debug!("Updating all programs");
+        println!("Checking for updates to all programs");
+        debug!("Checking for updates to all programs");
 
         let mut all_programs = match database.get_all_programs() {
             Ok(list) => list,
@@ -96,7 +96,11 @@ fn main() {
         };
         debug!("Got {} programs from the database", all_programs.len());
 
-        // Consult the api and determine if there are any changes based on the last update date.
+        /*
+         * Consult the api and determine if there are any changes based on the last update date.
+         * Even if the show was updated, that doesn't mean there are any changes to the episodes,
+         * but we won't know that until we call the episode api.
+         */
         let updates = match tvmaze_api.get_show_updates() {
             Ok(u) => u,
             Err(error) => {
@@ -135,14 +139,22 @@ fn main() {
         }
     }
 
+    if programs_to_update.is_empty() {
+        debug!("Nothing has changed");
+        println!("Nothing has changed");
+    }
+
     for program in programs_to_update {
+        // Print the name if we have it, otherwise the id.
         let display = match &program.name {
             Some(n) => n.clone(),
             None => format!("tvmaze_show_id {}", program.tvmaze_show_id)
         };
 
-        println!("Updating {}", display);
-        debug!("Updating {}", display);
+        let mut something_changed = false;
+
+        println!("Checking {}", display);
+        debug!("Checking {}", display);
 
         let show = match tvmaze_api.get_show(program.tvmaze_show_id) {
             Ok(s) => s,
@@ -160,6 +172,7 @@ fn main() {
         let program_to_update = to_program(show.unwrap());
 
         if program != program_to_update {
+            something_changed = true;
             println!("program before: {:?}", program);
             println!("program after:  {:?}", program_to_update);
             debug!("program before: {:?}", program);
@@ -204,12 +217,14 @@ fn main() {
             if current_episode.is_some() {
                 let current_episode = current_episode.unwrap();
                 if current_episode != new_episode {
+                    something_changed = true;
                     println!("episode before: {:?}", current_episode);
                     println!("episode after:  {:?}", new_episode);
                     debug!("episode before: {:?}", current_episode);
                     debug!("episode after:  {:?}", new_episode);
                 }
             } else {
+                something_changed = true;
                 println!("New: {:?}", new_episode);
                 debug!("New: {:?}", new_episode);
             }
@@ -235,9 +250,16 @@ fn main() {
                 }
             };
             debug!("Insert episodes affected rows: {}", insert_count);
-            println!("Episode count went from {} to {}", delete_result.0, insert_count);
+            if delete_result.0 != insert_count {
+                something_changed = true;
+                println!("Episode count went from {} to {}", delete_result.0, insert_count);
+            }
         } else {
             debug!("Delete episodes error'd, so skipping episodes insert");
+        }
+
+        if !something_changed {
+            println!("No changes")
         }
     }
 

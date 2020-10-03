@@ -1,7 +1,7 @@
 /*
- The user, subscription, and viewed tables are all that is needed for this application. The episode, program, and log tables
- are just "caches" of the tvmaze data to void api limits. Foreign key references reflects this design. Program name, episode title,
- and all URL lengths are "reasonable guesses" as tvmaze doesn't document their types.
+ * The user, subscription, and viewed tables are all that is needed for this application. The episode, program, and log tables
+ * are just "caches" of the tvmaze data to void api limits. Program name, episode title, and all URL lengths are
+ * "reasonable guesses" as tvmaze doesn't document their types.
  */
 ALTER DATABASE program_guide CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -55,7 +55,6 @@ CREATE TABLE subscription
     user_id        INTEGER UNSIGNED NOT NULL,
     tvmaze_show_id INTEGER UNSIGNED NOT NULL,
     UNIQUE (user_id, tvmaze_show_id)
-    -- FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
 -- Populate new subscription table from old subscribed table.
@@ -74,10 +73,9 @@ CREATE TABLE viewed
     tvmaze_show_id INTEGER UNSIGNED NOT NULL,
     season         TINYINT UNSIGNED NOT NULL,
     number         TINYINT UNSIGNED NOT NULL
-    -- FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
--- Poplulate new viewed table based on old status table.
+-- Populate new viewed table based on old status table.
 INSERT INTO viewed (user_id, tvmaze_show_id, season, number)
 SELECT s.user_id, p.tvmaze_id, s.season, s.episode_number
 FROM status s
@@ -112,5 +110,29 @@ ALTER TABLE log
 UPDATE program
 SET last_update = NULL;
 
--- tvmaze_id should be tvmaze_show_id
+-- Switch engine type for foreign keys.
+ALTER TABLE episode
+    ENGINE = InnoDB;
+ALTER TABLE log
+    ENGINE = InnoDB;
+ALTER TABLE program
+    ENGINE = InnoDB;
+ALTER TABLE subscription
+    ENGINE = InnoDB;
+ALTER TABLE user
+    ENGINE = InnoDB;
+ALTER TABLE viewed
+    ENGINE = InnoDB;
+
+-- Add foreign key constraints.
+ALTER TABLE episode
+    ADD FOREIGN KEY (tvmaze_show_id) REFERENCES program (tvmaze_show_id);
+ALTER TABLE subscription
+    ADD FOREIGN KEY (tvmaze_show_id) REFERENCES program (tvmaze_show_id),
+    ADD FOREIGN KEY (user_id) REFERENCES user (id);
+ALTER TABLE viewed
+    ADD FOREIGN KEY (tvmaze_show_id) REFERENCES program (tvmaze_show_id),
+    ADD FOREIGN KEY (user_id) REFERENCES user (id);
+
+
 -- need to setup own local service to test blanks and nulls
