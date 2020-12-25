@@ -40,10 +40,13 @@ pub struct TvMazeApi {
 }
 
 impl TvMazeApi {
-    pub fn new(url: String) -> Self {
+    pub fn new(url: &str) -> Self {
         let client = Client::new();
 
-        Self { url, client }
+        Self {
+            url: url.to_string(),
+            client,
+        }
     }
 
     pub fn get_show_updates(&self) -> Result<Option<HashMap<u32, u32>>, Error> {

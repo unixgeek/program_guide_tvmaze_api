@@ -39,7 +39,7 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn new(url: String) -> Result<Self, Error> {
+    pub fn new(url: &str) -> Result<Self, Error> {
         let mut connection = Conn::new(url)?;
 
         let get_program_by_tvmaze_show_id = connection.prep(

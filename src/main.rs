@@ -48,7 +48,7 @@ fn main() {
     }
 
     debug!("database_url: {:?}", database_url);
-    let mut database = match Database::new(database_url.unwrap()) {
+    let mut database = match Database::new(&database_url.unwrap()) {
         Ok(d) => d,
         Err(error) => {
             eprintln!("Error initializing database: {}", error);
@@ -57,7 +57,7 @@ fn main() {
     };
 
     debug!("tvmaze_api_url: {:?}", tvmaze_api_url);
-    let tvmaze_api = TvMazeApi::new(tvmaze_api_url.unwrap());
+    let tvmaze_api = TvMazeApi::new(&tvmaze_api_url.unwrap());
 
     let mut programs_to_update = Vec::new();
 
