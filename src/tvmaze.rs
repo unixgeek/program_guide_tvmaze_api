@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-use reqwest::{Error, StatusCode};
 use reqwest::blocking::Client;
+use reqwest::{Error, StatusCode};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct WebChannel {
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Deserialize)]
 pub struct Network {
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Deserialize)]
@@ -43,10 +43,7 @@ impl TvMazeApi {
     pub fn new(url: String) -> Self {
         let client = Client::new();
 
-        Self {
-            url,
-            client,
-        }
+        Self { url, client }
     }
 
     pub fn get_show_updates(&self) -> Result<Option<HashMap<u32, u32>>, Error> {
@@ -55,7 +52,7 @@ impl TvMazeApi {
 
         match response.status() {
             StatusCode::OK => Ok(Some(response.json()?)),
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
 
@@ -65,7 +62,7 @@ impl TvMazeApi {
 
         match response.status() {
             StatusCode::OK => Ok(Some(response.json()?)),
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
 
@@ -75,7 +72,7 @@ impl TvMazeApi {
 
         match response.status() {
             StatusCode::OK => Ok(Some(response.json()?)),
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
 }

@@ -1,5 +1,5 @@
-use mysql::{Conn, Error, Statement};
 use mysql::prelude::Queryable;
+use mysql::{Conn, Error, Statement};
 
 #[derive(Debug)]
 pub struct Program {
@@ -12,10 +12,10 @@ pub struct Program {
 
 impl PartialEq for Program {
     fn eq(&self, other: &Self) -> bool {
-        self.tvmaze_show_id == other.tvmaze_show_id &&
-            self.name == other.name &&
-            self.url == other.url &&
-            self.network == other.network
+        self.tvmaze_show_id == other.tvmaze_show_id
+            && self.name == other.name
+            && self.url == other.url
+            && self.network == other.network
     }
 }
 
@@ -51,29 +51,32 @@ impl Database {
         let get_episode_by_episode_number = connection.prep(
             "SELECT tvmaze_show_id, season, number, DATE_FORMAT(original_air_date, '%Y-%m-%d'), title, summary_url FROM episode WHERE tvmaze_show_id = ? AND season = ? AND number = ?")?;
 
-        let delete_episodes_by_tvmaze_show_id = connection.prep(
-            "DELETE FROM episode WHERE tvmaze_show_id = ?")?;
+        let delete_episodes_by_tvmaze_show_id =
+            connection.prep("DELETE FROM episode WHERE tvmaze_show_id = ?")?;
 
         let insert_episodes_for_tvmaze_show_id = connection.prep(
             "INSERT INTO episode (tvmaze_show_id, season, number, original_air_date, title, summary_url) VALUES (?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'), ?, ?)")?;
 
-        Ok(
-            Self {
-                connection,
-                get_program_by_tvmaze_show_id,
-                update_program_by_tvmaze_show_id,
-                get_episode_by_episode_number,
-                delete_episodes_by_tvmaze_show_id,
-                insert_episodes_for_tvmaze_show_id,
-            }
-        )
+        Ok(Self {
+            connection,
+            get_program_by_tvmaze_show_id,
+            update_program_by_tvmaze_show_id,
+            get_episode_by_episode_number,
+            delete_episodes_by_tvmaze_show_id,
+            insert_episodes_for_tvmaze_show_id,
+        })
     }
 
     pub fn get_program_by_tvmaze_show_id(&mut self, id: u32) -> Result<Option<Program>, Error> {
         let mut list = self.connection.exec_map(
-            &self.get_program_by_tvmaze_show_id, (&id, ),
-            |(tvmaze_show_id, name, url, network, last_update)| {
-                Program { tvmaze_show_id, name, url, network, last_update }
+            &self.get_program_by_tvmaze_show_id,
+            (&id,),
+            |(tvmaze_show_id, name, url, network, last_update)| Program {
+                tvmaze_show_id,
+                name,
+                url,
+                network,
+                last_update,
             },
         )?;
 
@@ -96,16 +99,36 @@ impl Database {
     }
 
     pub fn update_program(&mut self, program: Program) -> Result<u64, Error> {
-        let _result: Vec<u8> = self.connection.exec(&self.update_program_by_tvmaze_show_id, (&program.name, &program.url, &program.network, &program.last_update, &program.tvmaze_show_id))?;
+        let _result: Vec<u8> = self.connection.exec(
+            &self.update_program_by_tvmaze_show_id,
+            (
+                &program.name,
+                &program.url,
+                &program.network,
+                &program.last_update,
+                &program.tvmaze_show_id,
+            ),
+        )?;
 
         Ok(self.connection.affected_rows())
     }
 
-    pub fn get_episode_by_episode_number(&mut self, id: u32, season: u8, number: u8) -> Result<Option<Episode>, Error> {
+    pub fn get_episode_by_episode_number(
+        &mut self,
+        id: u32,
+        season: u8,
+        number: u8,
+    ) -> Result<Option<Episode>, Error> {
         let mut list = self.connection.exec_map(
-            &self.get_episode_by_episode_number, (id, season, number),
-            |(tvmaze_show_id, season, number, original_air_date, title, summary_url)| {
-                Episode { tvmaze_show_id, season, number, original_air_date, title, summary_url }
+            &self.get_episode_by_episode_number,
+            (id, season, number),
+            |(tvmaze_show_id, season, number, original_air_date, title, summary_url)| Episode {
+                tvmaze_show_id,
+                season,
+                number,
+                original_air_date,
+                title,
+                summary_url,
             },
         )?;
 
@@ -117,7 +140,9 @@ impl Database {
     }
 
     pub fn delete_episodes_by_program_id(&mut self, id: u32) -> Result<u64, Error> {
-        let _result: Vec<u8> = self.connection.exec(&self.delete_episodes_by_tvmaze_show_id, (id, ))?;
+        let _result: Vec<u8> = self
+            .connection
+            .exec(&self.delete_episodes_by_tvmaze_show_id, (id,))?;
 
         Ok(self.connection.affected_rows())
     }
@@ -125,7 +150,17 @@ impl Database {
     pub fn insert_episodes_by_program_id(&mut self, episodes: Vec<Episode>) -> Result<u64, Error> {
         let mut affected_rows = 0;
         for episode in episodes {
-            let _result: Vec<u8> = self.connection.exec(&self.insert_episodes_for_tvmaze_show_id, (episode.tvmaze_show_id, episode.season, episode.number, episode.original_air_date, episode.title, episode.summary_url))?;
+            let _result: Vec<u8> = self.connection.exec(
+                &self.insert_episodes_for_tvmaze_show_id,
+                (
+                    episode.tvmaze_show_id,
+                    episode.season,
+                    episode.number,
+                    episode.original_air_date,
+                    episode.title,
+                    episode.summary_url,
+                ),
+            )?;
             affected_rows += self.connection.affected_rows();
         }
 
