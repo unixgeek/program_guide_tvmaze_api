@@ -16,8 +16,8 @@ struct Cli {
     tvmaze_id: Option<u32>,
 }
 
-static TVMAZE_API_URL_KEY: &'static str = "tvmaze_api_url";
-static DATABASE_URL_KEY: &'static str = "database_url";
+static TVMAZE_API_URL_KEY: &str = "tvmaze_api_url";
+static DATABASE_URL_KEY: &str = "database_url";
 
 fn main() {
     env_logger::init();
@@ -25,12 +25,9 @@ fn main() {
     let args = Cli::from_args();
 
     let mut config = Config::default();
-    match config.merge(File::from(args.config)) {
-        Err(error) => {
-            eprintln!("Error reading config: {}", error);
-            exit(exitcode::CONFIG);
-        }
-        _ => ()
+    if let Err(error) = config.merge(File::from(args.config)) {
+        eprintln!("Error reading config: {}", error);
+        exit(exitcode::CONFIG);
     }
 
     let tvmaze_api_url = config.get_str(TVMAZE_API_URL_KEY).ok();
@@ -67,18 +64,27 @@ fn main() {
         let program = match database.get_program_by_tvmaze_id(tvmaze_id) {
             Ok(p) => p,
             Err(error) => {
-                eprintln!("Error getting program for tvmaze_id {} from the database: {}", tvmaze_id, error);
+                eprintln!(
+                    "Error getting program for tvmaze_id {} from the database: {}",
+                    tvmaze_id, error
+                );
                 exit(exitcode::SOFTWARE);
             }
         };
         debug!("Got program {:?}", program);
 
-        if program.is_none() {
-            println!("The program for tvmaze_id {} doesn't exist in the database", tvmaze_id);
-            debug!("The program for tvmaze_id {} doesn't exist in the database", tvmaze_id);
-            exit(exitcode::OK);
+        if let Some(program) = program {
+            programs_to_update.push(program);
         } else {
-            programs_to_update.push(program.unwrap());
+            println!(
+                "The program for tvmaze_id {} doesn't exist in the database",
+                tvmaze_id
+            );
+            debug!(
+                "The program for tvmaze_id {} doesn't exist in the database",
+                tvmaze_id
+            );
+            exit(exitcode::OK);
         }
     }
     // An id was not specified, so potentially update all of the programs in the database.
@@ -104,26 +110,24 @@ fn main() {
             }
         };
 
-        if updates.is_some() {
-            let updates = updates.unwrap();
+        if let Some(updates) = updates {
             debug!("Got {} update dates from the tvmaze api", updates.len());
 
             debug!("Comparing update dates");
             for program in all_programs {
-
                 // Get the last update from the api, if it exists.
                 let last_tvmaze_update: u32 = match updates.get(&program.tvmaze_id) {
                     Some(last_update) => *last_update,
-                    None => 0
+                    None => 0,
                 };
 
                 // Get the last update from the database, if it exists.
-                let last_program_guide_update: u32 = match program.last_update {
-                    Some(last_update) => last_update,
-                    None => 0
-                };
+                let last_program_guide_update: u32 = program.last_update.unwrap_or(0);
 
-                debug!("last_tvmaze_update: {} last_program_guide_update: {}", last_tvmaze_update, last_program_guide_update);
+                debug!(
+                    "last_tvmaze_update: {} last_program_guide_update: {}",
+                    last_tvmaze_update, last_program_guide_update
+                );
                 if last_tvmaze_update != last_program_guide_update {
                     debug!("Adding {} to the list to update", program.name);
 
@@ -131,7 +135,9 @@ fn main() {
                 }
             }
         } else {
-            debug!("Did not get the show update dates from the tvmaze api, so updating all programs");
+            debug!(
+                "Did not get the show update dates from the tvmaze api, so updating all programs"
+            );
             programs_to_update.append(all_programs.as_mut());
         }
     }
@@ -143,25 +149,32 @@ fn main() {
         let show = match tvmaze_api.get_show(program.tvmaze_id) {
             Ok(s) => s,
             Err(error) => {
-                eprintln!("Error getting show for tvmaze_id {} from the tvmaze api: {}", program.tvmaze_id, error);
+                eprintln!(
+                    "Error getting show for tvmaze_id {} from the tvmaze api: {}",
+                    program.tvmaze_id, error
+                );
                 exit(exitcode::SOFTWARE);
             }
         };
         if show.is_none() {
-            println!("Did not get a show from the tvmaze api for tvmaze_id {}, so skipping", program.tvmaze_id);
-            debug!("Did not get a show from the tvmaze api for tvmaze_id {}, so skipping", program.tvmaze_id);
+            println!(
+                "Did not get a show from the tvmaze api for tvmaze_id {}, so skipping",
+                program.tvmaze_id
+            );
+            debug!(
+                "Did not get a show from the tvmaze api for tvmaze_id {}, so skipping",
+                program.tvmaze_id
+            );
             continue;
         }
 
         let show = show.unwrap();
         let network = match show.network {
             Some(network) => network.name,
-            None => {
-                match show.web_channel {
-                    Some(web) => web.name,
-                    None => "".to_string()
-                }
-            }
+            None => match show.web_channel {
+                Some(web) => web.name,
+                None => "".to_string(),
+            },
         };
 
         let program_to_update = Program {
@@ -194,19 +207,29 @@ fn main() {
         let episodes = match tvmaze_api.get_episodes(program.tvmaze_id) {
             Ok(e) => e,
             Err(error) => {
-                eprintln!("Error getting episodes for tvmaze_id {} from the tvmaze api: {}", program.tvmaze_id, error);
+                eprintln!(
+                    "Error getting episodes for tvmaze_id {} from the tvmaze api: {}",
+                    program.tvmaze_id, error
+                );
                 exit(exitcode::SOFTWARE);
             }
         };
         if episodes.is_none() {
-            println!("Did not get any episodes for tvmaze_id {} from the tvmaze api, so skipping", program.tvmaze_id);
+            println!(
+                "Did not get any episodes for tvmaze_id {} from the tvmaze api, so skipping",
+                program.tvmaze_id
+            );
             continue;
         }
 
         let episodes = episodes.unwrap();
 
         for episode in episodes {
-            let current_episode = match database.get_episode_by_episode_number(program.id, episode.season, episode.number) {
+            let current_episode = match database.get_episode_by_episode_number(
+                program.id,
+                episode.season,
+                episode.number,
+            ) {
                 Ok(e) => e,
                 Err(error) => {
                     eprintln!("Error getting episode for id {}, season {}, number {} from the database: {}", program.id, episode.season, episode.number, error);
@@ -223,8 +246,7 @@ fn main() {
                 summary_url: episode.url,
             };
 
-            if current_episode.is_some() {
-                let current_episode = current_episode.unwrap();
+            if let Some(current_episode) = current_episode {
                 if current_episode != new_episode {
                     println!("episode before: {:?}", current_episode);
                     println!("episode after:  {:?}", new_episode);
@@ -257,7 +279,10 @@ fn main() {
                 }
             };
             debug!("Insert episodes affected rows: {}", insert_count);
-            println!("Episode count went from {} to {}", delete_result.0, insert_count);
+            println!(
+                "Episode count went from {} to {}",
+                delete_result.0, insert_count
+            );
         } else {
             debug!("Delete episodes error'd, so skipping episodes insert");
         }

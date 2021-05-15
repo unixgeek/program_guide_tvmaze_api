@@ -86,7 +86,7 @@ impl Database {
             },
         )?;
 
-        if list.len() > 0 {
+        if !list.is_empty() {
             Ok(list.pop())
         } else {
             Ok(None)
@@ -117,7 +117,7 @@ impl Database {
             },
         )?;
 
-        if list.len() > 0 {
+        if !list.is_empty() {
             Ok(list.pop())
         } else {
             Ok(None)
