@@ -35,7 +35,7 @@ pub struct Episode {
 
 pub struct Database {
     connection: Conn,
-    get_all_programs: Statement,
+    get_all_programs_to_update: Statement,
     get_program_by_tvmaze_id: Statement,
     update_program_by_tvmaze_id: Statement,
     get_episode_by_episode_number: Statement,
@@ -47,8 +47,8 @@ impl Database {
     pub fn new(url: String) -> Result<Self, Error> {
         let mut connection = Conn::new(url)?;
 
-        let get_all_programs = connection.prep(
-            "SELECT id, name, url, do_update, tvmaze_id, network, UNIX_TIMESTAMP(last_update) AS last_update FROM program")?;
+        let get_all_programs_to_update = connection.prep(
+            "SELECT id, name, url, do_update, tvmaze_id, network, UNIX_TIMESTAMP(last_update) AS last_update FROM program WHERE do_update = true")?;
 
         let get_program_by_tvmaze_id = connection.prep(
             "SELECT id, name, url, do_update, tvmaze_id, network, UNIX_TIMESTAMP(last_update) AS last_update FROM program WHERE tvmaze_id = ?")?;
@@ -68,7 +68,7 @@ impl Database {
         Ok(
             Self {
                 connection,
-                get_all_programs,
+                get_all_programs_to_update,
                 get_program_by_tvmaze_id,
                 update_program_by_tvmaze_id,
                 get_episode_by_episode_number,
@@ -93,9 +93,9 @@ impl Database {
         }
     }
 
-    pub fn get_all_programs(&mut self) -> Result<Vec<Program>, Error> {
+    pub fn get_all_programs_to_update(&mut self) -> Result<Vec<Program>, Error> {
         let list = self.connection.exec_map(
-            &self.get_all_programs, (),
+            &self.get_all_programs_to_update, (),
             |(id, name, url, do_update, tvmaze_id, network, last_update)| {
                 Program { id, name, url, do_update, tvmaze_id, network, last_update }
             },

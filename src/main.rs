@@ -92,7 +92,7 @@ fn main() {
         println!("Updating all programs");
         debug!("Updating all programs");
 
-        let mut all_programs = match database.get_all_programs() {
+        let mut all_programs = match database.get_all_programs_to_update() {
             Ok(list) => list,
             Err(error) => {
                 eprintln!("Error getting all programs from the database: {}", error);
